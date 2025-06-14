@@ -1,57 +1,74 @@
 services:
-  postgres:
+  # PostgreSQL for Inventory Service
+  postgres-inventory:
     image: postgres:15
-    container_name: routewise-postgres
+    container_name: routewise-postgres-inventory
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: routewise_db
+      POSTGRES_DB: inventory_db
     ports:
-      - "5432:5432"
+      - "5433:5432" # Expose to a different host port to avoid conflict
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - inventory-db-data:/var/lib/postgresql/data
     networks:
       - routewise-network
 
-  # RabbitMQ Message Broker with Management UI
+#  # PostgreSQL for Order Service
+#  postgres-order:
+#    image: postgres:15
+#    container_name: routewise-postgres-order
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#      POSTGRES_DB: order_db
+#    ports:
+#      - "5434:5432"
+#    volumes:
+#      - order-db-data:/var/lib/postgresql/data
+#    networks:
+#      - routewise-network
+
+  # RabbitMQ Message Broker with UI
   rabbitmq:
     image: rabbitmq:3-management
     container_name: routewise-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"   # AMQP protocol port (used by services to connect)
-      - "15672:15672" # Management UI (open http://localhost:15672)
+      - "5672:5672"   # AMQP protocol (internal)
+      - "15672:15672" # RabbitMQ UI (http://localhost:15672)
     networks:
       - routewise-network
 
-#  # (Optional for later) Prometheus - Monitoring Tool
-#  prometheus:
-#    image: prom/prometheus:latest
-#    container_name: routewise-prometheus
-#    restart: unless-stopped
+  # Inventory Service
+  inventory-service:
+    build: ./inventory-service
+    container_name: routewise-inventory
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres-inventory
+      - rabbitmq
+    networks:
+      - routewise-network
+
+  # Order Service (Placeholder for now)
+#  order-service:
+#    build: ./order-service
+#    container_name: routewise-order
 #    ports:
-#      - "9090:9090"  # Prometheus UI (http://localhost:9090)
-#    volumes:
-#      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml  # Config file
+#      - "8082:8082"
+#    depends_on:
+#      - postgres-order
+#      - rabbitmq
 #    networks:
 #      - routewise-network
-#
-#  # (Optional for later) Grafana - Dashboard Visualization
-#  grafana:
-#    image: grafana/grafana:latest
-#    container_name: routewise-grafana
-#    restart: unless-stopped
-#    ports:
-#      - "3000:3000"  # Grafana UI (http://localhost:3000)
-#    networks:
-#      - routewise-network
-#    volumes:
-#      - grafana-data:/var/lib/grafana  # Persist Grafana dashboards
 
 volumes:
-  postgres-data:
-#  grafana-data:
+  inventory-db-data:
+#  order-db-data:
 
 networks:
-  routewise-network:   # Custom network so services can discover each other
+  routewise-network:
